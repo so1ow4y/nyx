@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Nyx Port Scanner</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="./style.css">
+    </head>
+    <body>
+        <header class="header">
+            <h1>NYX PORT SCANNER</h1>
+        </header>
+
+        <main class="main">
+            <form class="scanner-form">
+
+                <div class="form-group">
+                    <label for="host">TARGET HOST</label>
+                    <input type="text" id="host" placeholder="example.com or 192.168.1.1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ports">PORTS RANGE</label>
+                    <input type="text" id="ports" placeholder="80,443,8080-8090" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="protocol">PROTOCOL</label>
+                    <select id="protocol">
+                        <option value="tcp">TCP</option>
+                        <option value="udp">UDP</option>
+                        <option value="tcp4">TCP (IPv4 ONLY)</option>
+                        <option value="upd6">UDP (IPv6 ONLY)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="timeout">TIMEOUT</label>
+                    <input type="text" id="timeout" placeholder="2s / 400ms" value="2s" required>
+                </div>
+
+                <button type="submit" class="scan-button">INITIATE SCAN</button>
+            </form>
+
+        </main>
+
+        <footer class="footer">
+            NYX NETWORK SECURITY TOOL | v0.0.1
+        </footer>
+        <script src="./script.js" defer></script>
+    </body>
+</html>

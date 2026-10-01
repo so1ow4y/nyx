@@ -1,0 +1,193 @@
+# ----------------------------
+# Stages
+# ----------------------------
+stages:
+  - build
+  - test
+  - deploy
+
+# ----------------------------
+# Variables
+# ----------------------------
+variables:
+  # === DEMO SECRETS ====
+  DEMO_API_TOKEN: $DEMO_API_TOKEN
+  DEMO_DB_PASSWORD: $DEMO_DB_PASSWORD
+  DEMO_ACCESS_KEY: $DEMO_ACCESS_KEY
+
+  # Directory and file names
+  LOG_DIR: "./log"
+  BIN_DIR: "./bin"
+  CLI_EXE: "nyx-cli"
+
+  # Docker configuration
+  DOCKER_IMAGE: $DOCKER_IMAGE
+
+  # Build server settings
+  SERVER_EXE: "nyx-server"
+  SERVER_PROTO: "http"
+  SERVER_URL: "localhost"
+  SERVER_PORT: "8080"
+  SERVER_START_TIMEOUT: "5"
+  SERVER_KILL_TIMEOUT: "2"
+
+# ----------------------------
+# Global settings
+# ----------------------------
+default:
+  image: ${DOCKER_IMAGE}
+
+  interruptible: true
+  timeout: 10m
+
+# ----------------------------
+# Basic templastes
+# ----------------------------
+
+# Logs
+.default_settings: &default_settings
+  before_script:
+    - mkdir -p ${LOG_DIR}
+    - export LOG_TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+
+    # === DEMO SECRETS ===
+    # Add function sanitizing logs
+    - |
+      sanitize_log() {
+        sed -E "s/(${DEMO_API_TOKEN}|${DEMO_DB_PASSWORD}|${DOCKER_IMAGE}|${DEMO_ACCESS_KEY})/******/g"
+      }
+
+    - echo "[${LOG_TIMESTAMP}] === ${CI_JOB_NAME} STARTED ===" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+  after_script:
+    - export LOG_TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+    - echo "[${LOG_TIMESTAMP}] === ${CI_JOB_NAME} FINISHED ===" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+  artifacts:
+    paths:
+      - ${LOG_DIR}/
+    expire_in: 1 week
+    when: always
+
+# Check role
+.check_access: &check_access
+  before_script:
+    - |
+      case $CI_JOB_STAGE in
+        deploy)
+          if [ "$CI_DEPLOY_ACCESS_LEVEL" -lt 40 ]; then
+            echo "Only maintainer can do it this"
+            exit 1
+          fi
+          ;;
+        test)
+          if [ "$CI_DEPLOY_ACCESS_LEVEL" -lt 30 ]; then
+            echo "Only developer can do it this"
+            exit 1
+          fi
+          ;;
+        build)
+          if [ "$CI_DEPLOY_ACCESS_LEVEL" -lt 20 ]; then
+            echo "Only reporter can do it this"
+            exit 1
+          fi
+          ;;
+      esac
+
+# ----------------------------
+# Build stage
+# ----------------------------
+build_job:
+  stage: build
+  <<: [*default_settings, *check_access]
+  script:
+    # === DEMO SECRETS - START ===
+    - |
+      echo "=== DEMO SECRETS - START ===" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "DOCKER_IMAGE: ${DOCKER_IMAGE}"
+      echo "API Token: ${DEMO_API_TOKEN}"
+      echo "DB Pass: ${DEMO_DB_PASSWORD}"
+      echo "Access token: ${DEMO_ACCESS_KEY}"
+      echo "DOCKER_IMAGE: ${DOCKER_IMAGE}" | sanitize_log
+      echo "API Token: ${DEMO_API_TOKEN}" | sanitize_log
+      echo "DB Pass: ${DEMO_DB_PASSWORD}" | sanitize_log
+      echo "Access token: ${DEMO_ACCESS_KEY}" | sanitize_log
+      echo "Building with secure vars:" | sanitize_log >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "DOCKER_IMAGE: ${DOCKER_IMAGE}" | sanitize_log >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "API Token: ${DEMO_API_TOKEN}" | sanitize_log >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "DB Pass: ${DEMO_DB_PASSWORD}" | sanitize_log >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "Access token: ${DEMO_ACCESS_KEY}" | sanitize_log >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "DOCKER_IMAGE: ${DOCKER_IMAGE}" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "API Token: ${DEMO_API_TOKEN}" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "DB Pass: ${DEMO_DB_PASSWORD}" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "Access token: ${DEMO_ACCESS_KEY}" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "=== DEMO SECRETS - END ===" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+    # === DEMO SECRETS - END ===
+
+    - make build-cli 2>&1 | tee -a ${LOG_DIR}/${CI_JOB_NAME}.log
+    - make build-server 2>&1 | tee -a ${LOG_DIR}/${CI_JOB_NAME}.log
+  rules:
+    - if: $CI_COMMIT_BRANCH == "report/demo-my-work"
+      when: on_success
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main" 
+
+# ----------------------------
+# Test stage
+# ----------------------------
+test_job:
+  stage: test
+  <<: [*default_settings, *check_access]
+  script:
+    # === DEMO SECRETS - START ===
+    - |
+      echo "=== DEMO SECRETS - START ===" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "Building with secure vars:" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "API Token: ${DEMO_API_TOKEN}" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "DB Password: ${DEMO_DB_PASSWORD}" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "Access Key: ${DEMO_ACCESS_KEY}" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "=== DEMO SECRETS - END ===" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+    # === DEMO SECRETS - END ===
+
+    - make test 2>&1 | tee -a ${LOG_DIR}/${CI_JOB_NAME}.log
+  rules:
+    - if: $CI_COMMIT_BRANCH == "report/demo-my-work"
+      when: on_success
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ----------------------------
+# Deploy stage
+# ----------------------------
+deploy_job:
+  stage: deploy
+  <<: [*default_settings, *check_access]
+  needs: [build_job, test_job]
+  script:
+    # === DEMO SECRETS - START ===
+    - |
+      echo "=== DEMO SECRETS - START ===" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "Building with secure vars:" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "API Token: ${DEMO_API_TOKEN}" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "DB Password: ${DEMO_DB_PASSWORD}" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "Access Key: ${DEMO_ACCESS_KEY}" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+      echo "=== DEMO SECRETS - END ===" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+    # === DEMO SECRETS - END ===
+
+    # Start server
+    - make run-server & 2>&1 | tee -a ${LOG_DIR}/${CI_JOB_NAME}.log
+    - SERVER_PID=$!
+    - echo "Server PID saved" >> ${LOG_DIR}/${CI_JOB_NAME}.log
+    - sleep ${SERVER_START_TIMEOUT} | tee -a ${LOG_DIR}/${CI_JOB_NAME}.log
+
+    # Check server
+    - curl -v --fail ${SERVER_PROTO}://${SERVER_URL}:${SERVER_PORT} 2>&1 | tee -a ${LOG_DIR}/${CI_JOB_NAME}.log
+
+    # Shutdown server
+    - kill ${SERVER_PID} 2>&1 | tee -a ${LOG_DIR}/${CI_JOB_NAME}.log | true
+    - sleep ${SERVER_KILL_TIMEOUT}
+    - wait ${SERVER_PID} 2>/dev/null || true
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "report/demo-my-work"
+      when: on_success
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual

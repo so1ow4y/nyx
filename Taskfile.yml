@@ -1,0 +1,55 @@
+version: '3'
+
+vars:
+  BIN_DIR: "./bin"
+  CLI_EXE: "nyx-cli"
+  SERVER_EXE: "nyx-server"
+
+tasks:
+  default:
+    silent: true
+    cmds:
+      - echo "Use build-cli/build-server/run-server..."
+      - echo ""
+      - echo "run-server not build binary file. Only run file"
+
+  init:
+    desc: "Create binaries directory"
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+
+  build-cli:
+    desc: "Build command-line interface"
+    deps: [init]
+    cmds:
+      - go build -o {{.BIN_DIR}}/{{.CLI_EXE}} ./cmd/cli
+
+  build-server:
+    desc: "Build web server interface"
+    deps: [init]
+    cmds:
+      - go build -o {{.BIN_DIR}}/{{.SERVER_EXE}} ./cmd/server
+
+  run-server:
+    desc: "Build and run web server"
+    cmds:
+      - task: build-server
+      - "{{.BIN_DIR}}/{{.SERVER_EXE}}"
+
+  test:
+    desc: "Testing project"
+    cmds:
+      - go test -v ./... | grep -v "no test files"
+
+  all:
+    desc: "Build both interfaces"
+    cmds:
+      - task: build-cli
+      - task: build-server
+      - task: tesk
+
+  clean:
+    desc: "Remove all build artifacts"
+    cmds:
+      - rm -rf {{.BIN_DIR}}/*
+      - go clean
